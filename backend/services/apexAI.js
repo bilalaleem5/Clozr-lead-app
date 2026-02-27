@@ -1,10 +1,9 @@
-// APEX AI Brain — Full System Prompt & OpenAI Integration
-const OpenAI = require('openai');
+// APEX AI Brain — Full System Prompt & Gemini Integration
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || 'sk-YOUR-KEY-HERE',
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyD_qx_122-XOIAjF8RHzeAtcg5MPr3GBy8');
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 const APEX_SYSTEM_PROMPT = `You are APEX — an AI Sales Intelligence and Autonomous Outreach Closing Agent. Your mission is to convert cold leads into warm conversations that result in booked meetings.
 You write like a sharp, experienced human sales closer — never like a bot.
@@ -61,8 +60,7 @@ Max 50 words. Zero pitch.
 SECTION D — FOLLOW-UP SEQUENCE:
 Day 3: Value-add — share one industry insight, NOT a pitch repeat
 Day 6: Complete reframe — new angle, new pain, same service
-Day 10: Takeaway close — withdraw interest to trigger FOMO:
-"I do not want to keep interrupting if the timing is off. If [problem] becomes a priority in Q[X], just reach out then."
+Day 10: Takeaway close — withdraw interest to trigger FOMO
 Day 45: Re-engage with fresh angle on different channel
 Stop if: lead replies OR unsubscribes OR owner marks closed
 
@@ -80,10 +78,6 @@ Thresholds:
 0-20  = Nurture, continue sequence
 21-40 = Warm, send strong positioning reply
 41+   = HOT, flag for human takeover NOW
-
-When score reaches 41+, send:
-"[Name], based on what you have shared there is a real fit here. Would a 15-minute call this week make sense to map this out for [Company]?"
-This is the ONLY time you ask for a meeting.
 
 SECTION F — OBJECTION SCRIPTS:
 "Already have someone" → "Great. Most we work with did too. Question is whether results match expectations — what does that look like for you now?"
@@ -123,22 +117,19 @@ OUTPUT FORMAT (respond in valid JSON only):
 }`;
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-4o',
-            messages: [
-                { role: 'system', content: APEX_SYSTEM_PROMPT },
-                { role: 'user', content: userPrompt },
-            ],
-            temperature: 0.8,
-            max_tokens: 1500,
-            response_format: { type: 'json_object' },
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: APEX_SYSTEM_PROMPT + '\n\n' + userPrompt }] }],
+            generationConfig: {
+                temperature: 0.8,
+                maxOutputTokens: 1500,
+                responseMimeType: 'application/json',
+            },
         });
 
-        const content = completion.choices[0].message.content;
+        const content = result.response.text();
         return JSON.parse(content);
     } catch (error) {
         console.error('[APEX AI] Message generation failed:', error.message);
-        // Return fallback template
         return {
             lead_analysis: { lead_type: 'Unknown', industry: lead.industry || 'General', pain_probability: 'Medium', primary_pain: 'Growth', outreach_angle: 'Direct', recommended_channel: 'email', tone: campaign.tone || 'friendly' },
             message_whatsapp: `Hey ${lead.name}, noticed ${lead.company || 'your business'} is growing. Most in your space lose leads from slow responses. How are you handling that?`,
@@ -157,7 +148,9 @@ OUTPUT FORMAT (respond in valid JSON only):
  * Score the intent of a lead reply
  */
 async function scoreIntent(lead, replyText, conversationHistory) {
-    const prompt = `Score the buying intent of this lead reply.
+    const prompt = `${APEX_SYSTEM_PROMPT}
+
+Score the buying intent of this lead reply.
 
 Lead: ${lead.name} (${lead.company || 'Unknown'})
 Their reply: "${replyText}"
@@ -185,18 +178,16 @@ RESPOND IN VALID JSON:
 }`;
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-4o',
-            messages: [
-                { role: 'system', content: APEX_SYSTEM_PROMPT },
-                { role: 'user', content: prompt },
-            ],
-            temperature: 0.3,
-            max_tokens: 500,
-            response_format: { type: 'json_object' },
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 500,
+                responseMimeType: 'application/json',
+            },
         });
 
-        return JSON.parse(completion.choices[0].message.content);
+        return JSON.parse(result.response.text());
     } catch (error) {
         console.error('[APEX AI] Intent scoring failed:', error.message);
         return {
@@ -215,7 +206,9 @@ RESPOND IN VALID JSON:
  * Generate a strategic reply to a lead's message
  */
 async function generateReply(lead, replyText, campaign, intentResult) {
-    const prompt = `Generate a strategic reply to this lead.
+    const prompt = `${APEX_SYSTEM_PROMPT}
+
+Generate a strategic reply to this lead.
 
 Lead: ${lead.name} (${lead.company || 'Unknown'})
 Industry: ${lead.industry || 'General'}
@@ -240,18 +233,16 @@ RESPOND IN VALID JSON:
 }`;
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-4o',
-            messages: [
-                { role: 'system', content: APEX_SYSTEM_PROMPT },
-                { role: 'user', content: prompt },
-            ],
-            temperature: 0.7,
-            max_tokens: 400,
-            response_format: { type: 'json_object' },
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 400,
+                responseMimeType: 'application/json',
+            },
         });
 
-        return JSON.parse(completion.choices[0].message.content);
+        return JSON.parse(result.response.text());
     } catch (error) {
         console.error('[APEX AI] Reply generation failed:', error.message);
         return {

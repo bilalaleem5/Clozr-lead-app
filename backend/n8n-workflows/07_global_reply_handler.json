@@ -1,5 +1,5 @@
 {
-    "name": "APEX - Global Reply Handler",
+    "name": "APEX - Global Reply Handler (Gemini)",
     "nodes": [
         {
             "parameters": {
@@ -19,7 +19,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// Normalize reply from any channel (WhatsApp, Email, LinkedIn)\nconst data = $input.first().json.body;\n\nreturn [{\n  json: {\n    leadId: data.leadId || data.lead_id,\n    channel: data.channel || 'unknown',\n    replyText: data.replyText || data.text || data.message || '',\n    leadName: data.leadName || data.from || 'Unknown',\n    company: data.company || '',\n    timestamp: new Date().toISOString()\n  }\n}];"
+                "jsCode": "const data = $input.first().json.body;\nreturn [{\n  json: {\n    leadId: data.leadId || data.lead_id,\n    channel: data.channel || 'unknown',\n    replyText: data.replyText || data.text || data.message || '',\n    leadName: data.leadName || data.from || 'Unknown',\n    company: data.company || '',\n    timestamp: new Date().toISOString()\n  }\n}];"
             },
             "id": "normalize-reply",
             "name": "Normalize Reply Data",
@@ -32,43 +32,34 @@
         },
         {
             "parameters": {
-                "resource": "chat",
-                "model": "gpt-4o",
-                "messages": {
-                    "values": [
+                "method": "POST",
+                "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyD_qx_122-XOIAjF8RHzeAtcg5MPr3GBy8",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
                         {
-                            "role": "system",
-                            "content": "You are APEX Intent Scorer. Analyze the lead's reply and score their buying intent.\n\nSCORING RULES:\n+40 = Asks for call or meeting\n+30 = Asks about price\n+25 = Asks how it works\n+20 = Describes their current problem\n+15 = Says interesting or tell me more\n+10 = Mentions dissatisfaction with current solution\n+5  = One-word positive reply\n-50 = Explicit not interested\n\nAlso detect objections and generate a strategic response.\n\nRESPOND IN VALID JSON ONLY:\n{\n  \"intent_score\": <number 0-100>,\n  \"intent_level\": \"hot|warm|cold\",\n  \"detected_signals\": [\"list of detected buying signals\"],\n  \"objection_detected\": \"<objection or null>\",\n  \"suggested_reply\": \"<strategic reply message>\",\n  \"escalation_flag\": <true if score >= 41, false otherwise>,\n  \"escalation_message\": \"<message for owner if hot lead>\"\n}"
-                        },
-                        {
-                            "role": "user",
-                            "content": "Lead: {{$json.leadName}} ({{$json.company}})\nChannel: {{$json.channel}}\nTheir reply: \"{{$json.replyText}}\""
+                            "name": "Content-Type",
+                            "value": "application/json"
                         }
                     ]
                 },
-                "options": {
-                    "temperature": 0.3,
-                    "maxTokens": 500
-                }
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'You are APEX Intent Scorer. Analyze the lead reply and score buying intent.\\n\\nSCORING:\\n+40 = Asks for call/meeting\\n+30 = Asks about price\\n+25 = Asks how it works\\n+20 = Describes current problem\\n+15 = Says interesting/tell me more\\n+10 = Dissatisfaction with current solution\\n+5 = One-word positive\\n-50 = Explicit not interested\\n\\nLead: ' + $json.leadName + ' (' + $json.company + ')\\nChannel: ' + $json.channel + '\\nTheir reply: \"' + $json.replyText + '\"\\n\\nRESPOND IN VALID JSON:\\n{\\n  \"intent_score\": 0,\\n  \"intent_level\": \"hot|warm|cold\",\\n  \"detected_signals\": [],\\n  \"objection_detected\": null,\\n  \"suggested_reply\": \"\",\\n  \"escalation_flag\": false,\\n  \"escalation_message\": \"\"\\n}' }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 500, responseMimeType: 'application/json' } }) }}",
+                "options": {}
             },
             "id": "score-intent",
-            "name": "Score Intent with AI",
-            "type": "n8n-nodes-base.openAi",
-            "typeVersion": 1,
+            "name": "Score Intent with Gemini",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4,
             "position": [
                 690,
                 300
-            ],
-            "credentials": {
-                "openAiApi": {
-                    "id": "CONFIGURE_YOUR_OPENAI_CREDENTIAL_ID",
-                    "name": "APEX OpenAI"
-                }
-            }
+            ]
         },
         {
             "parameters": {
-                "jsCode": "// Parse AI scoring result\nconst reply = $('Normalize Reply Data').first().json;\nconst aiResult = JSON.parse($input.first().json.message.content);\n\nreturn [{\n  json: {\n    leadId: reply.leadId,\n    channel: reply.channel,\n    direction: 'inbound',\n    content: reply.replyText,\n    intent_score: aiResult.intent_score,\n    escalation_flag: aiResult.escalation_flag,\n    suggested_reply: aiResult.suggested_reply,\n    intent_level: aiResult.intent_level,\n    escalation_message: aiResult.escalation_message || null,\n    leadName: reply.leadName,\n    company: reply.company\n  }\n}];"
+                "jsCode": "const reply = $('Normalize Reply Data').first().json;\nconst response = $input.first().json;\nconst aiResult = JSON.parse(response.candidates[0].content.parts[0].text);\n\nreturn [{\n  json: {\n    leadId: reply.leadId,\n    channel: reply.channel,\n    direction: 'inbound',\n    content: reply.replyText,\n    intent_score: aiResult.intent_score,\n    escalation_flag: aiResult.escalation_flag,\n    suggested_reply: aiResult.suggested_reply,\n    intent_level: aiResult.intent_level,\n    escalation_message: aiResult.escalation_message || null,\n    leadName: reply.leadName,\n    company: reply.company\n  }\n}];"
             },
             "id": "parse-scoring",
             "name": "Parse Scoring Result",
@@ -81,21 +72,23 @@
         },
         {
             "parameters": {
-                "method": "POST",
-                "url": "http://localhost:5000/api/conversations",
-                "sendBody": true,
-                "specifyBody": "json",
-                "jsonBody": "={{ JSON.stringify({ lead_id: $json.leadId, channel: $json.channel, direction: 'inbound', content: $json.content, intent_score: $json.intent_score, escalation_flag: $json.escalation_flag }) }}",
-                "options": {}
+                "operation": "executeQuery",
+                "query": "INSERT INTO conversations (lead_id, channel, direction, content, intent_score, escalation_flag) VALUES ('{{$json.leadId}}', '{{$json.channel}}', 'inbound', '{{$json.content}}', {{$json.intent_score}}, {{$json.escalation_flag}})"
             },
             "id": "save-conversation",
             "name": "Save to Conversations DB",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4,
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2,
             "position": [
                 1130,
                 300
-            ]
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "CONFIGURE_YOUR_PG_CREDENTIAL_ID",
+                    "name": "Neon APEX DB"
+                }
+            }
         },
         {
             "parameters": {
@@ -119,52 +112,23 @@
         },
         {
             "parameters": {
-                "method": "POST",
-                "url": "http://localhost:5000/api/alerts",
-                "sendBody": true,
-                "specifyBody": "json",
-                "jsonBody": "={{ JSON.stringify({ lead_id: $json.leadId, type: 'hot_lead', message: '🚨 HOT LEAD: ' + $json.leadName + ' (' + $json.company + ') — Intent Score: ' + $json.intent_score + '. Reply: ' + $json.content }) }}",
-                "options": {}
+                "operation": "executeQuery",
+                "query": "INSERT INTO alerts (lead_id, type, message) VALUES ('{{$json.leadId}}', 'hot_lead', '🚨 HOT LEAD: {{$json.leadName}} ({{$json.company}}) — Intent: {{$json.intent_score}}')"
             },
             "id": "create-alert",
             "name": "Create Hot Lead Alert",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4,
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2,
             "position": [
                 1570,
                 200
-            ]
-        },
-        {
-            "parameters": {
-                "method": "POST",
-                "url": "https://graph.facebook.com/v18.0/={{$env.WHATSAPP_PHONE_ID}}/messages",
-                "sendHeaders": true,
-                "headerParameters": {
-                    "parameters": [
-                        {
-                            "name": "Authorization",
-                            "value": "Bearer {{$env.WHATSAPP_TOKEN}}"
-                        },
-                        {
-                            "name": "Content-Type",
-                            "value": "application/json"
-                        }
-                    ]
-                },
-                "sendBody": true,
-                "specifyBody": "json",
-                "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{$env.OWNER_WHATSAPP_NUMBER}}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"body\": \"🚨 APEX HOT LEAD ALERT\\n\\n{{$json.leadName}} ({{$json.company}})\\nIntent Score: {{$json.intent_score}}\\nChannel: {{$json.channel}}\\n\\nTheir reply:\\n{{$json.content}}\\n\\n👉 Open APEX Reply Center to take over.\"\n  }\n}",
-                "options": {}
-            },
-            "id": "alert-owner",
-            "name": "Alert Owner via WhatsApp",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4,
-            "position": [
-                1790,
-                200
-            ]
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "CONFIGURE_YOUR_PG_CREDENTIAL_ID",
+                    "name": "Neon APEX DB"
+                }
+            }
         }
     ],
     "connections": {
@@ -183,14 +147,14 @@
             "main": [
                 [
                     {
-                        "node": "Score Intent with AI",
+                        "node": "Score Intent with Gemini",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Score Intent with AI": {
+        "Score Intent with Gemini": {
             "main": [
                 [
                     {
@@ -234,17 +198,6 @@
                 ],
                 []
             ]
-        },
-        "Create Hot Lead Alert": {
-            "main": [
-                [
-                    {
-                        "node": "Alert Owner via WhatsApp",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
         }
     },
     "settings": {
@@ -258,7 +211,7 @@
             "name": "Reply"
         },
         {
-            "name": "Intent"
+            "name": "Gemini"
         }
     ]
 }
