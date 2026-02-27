@@ -12,17 +12,23 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [250, 300]
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Extract inputs from webhook body\nconst category = $input.first().json.body.category;\nconst country = $input.first().json.body.country;\nconst filters = $input.first().json.body.filters || {};\n\n// Build Google Maps search URL\nconst searchQuery = encodeURIComponent(`${category} in ${country}`);\nconst searchUrl = `https://www.google.com/maps/search/${searchQuery}`;\n\nreturn [{\n  json: {\n    category,\n    country,\n    filters,\n    searchUrl,\n    searchQuery\n  }\n}];"
+        "jsCode": "// Extract inputs from webhook — n8n puts POST body directly in $json\nconst category = $input.first().json.category || $input.first().json.body?.category || 'Dentists';\nconst country = $input.first().json.country || $input.first().json.body?.country || 'United States';\nconst filters = $input.first().json.filters || $input.first().json.body?.filters || {};\n\n// Build Google Maps search URL\nconst searchQuery = encodeURIComponent(`${category} in ${country}`);\nconst searchUrl = `https://www.google.com/maps/search/${searchQuery}`;\n\nreturn [{\n  json: {\n    category,\n    country,\n    filters,\n    searchUrl,\n    searchQuery\n  }\n}];"
       },
       "id": "prepare-search",
       "name": "Prepare Search Query",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [470, 300]
+      "position": [
+        470,
+        300
+      ]
     },
     {
       "parameters": {
@@ -39,7 +45,10 @@
       "name": "Scrape Google Maps",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [690, 300]
+      "position": [
+        690,
+        300
+      ]
     },
     {
       "parameters": {
@@ -49,7 +58,10 @@
       "name": "Parse & Extract Leads",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [910, 300]
+      "position": [
+        910,
+        300
+      ]
     },
     {
       "parameters": {
@@ -59,7 +71,10 @@
       "name": "Calculate ICP Score",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1130, 300]
+      "position": [
+        1130,
+        300
+      ]
     },
     {
       "parameters": {
@@ -77,7 +92,10 @@
       "name": "Filter ICP >= 60",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 1,
-      "position": [1350, 300]
+      "position": [
+        1350,
+        300
+      ]
     },
     {
       "parameters": {
@@ -88,7 +106,10 @@
       "name": "Save to PostgreSQL",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [1570, 300],
+      "position": [
+        1570,
+        300
+      ],
       "credentials": {
         "postgres": {
           "id": "CONFIGURE_YOUR_PG_CREDENTIAL_ID",
@@ -103,16 +124,46 @@
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "name", "value": "={{$json.name}}" },
-            { "name": "company", "value": "={{$json.company}}" },
-            { "name": "industry", "value": "={{$json.industry}}" },
-            { "name": "email", "value": "={{$json.email}}" },
-            { "name": "phone", "value": "={{$json.phone}}" },
-            { "name": "website", "value": "={{$json.website}}" },
-            { "name": "rating", "value": "={{$json.rating}}" },
-            { "name": "icp_score", "value": "={{$json.icp_score}}" },
-            { "name": "category", "value": "={{$json.category}}" },
-            { "name": "country", "value": "={{$json.country}}" }
+            {
+              "name": "name",
+              "value": "={{$json.name}}"
+            },
+            {
+              "name": "company",
+              "value": "={{$json.company}}"
+            },
+            {
+              "name": "industry",
+              "value": "={{$json.industry}}"
+            },
+            {
+              "name": "email",
+              "value": "={{$json.email}}"
+            },
+            {
+              "name": "phone",
+              "value": "={{$json.phone}}"
+            },
+            {
+              "name": "website",
+              "value": "={{$json.website}}"
+            },
+            {
+              "name": "rating",
+              "value": "={{$json.rating}}"
+            },
+            {
+              "name": "icp_score",
+              "value": "={{$json.icp_score}}"
+            },
+            {
+              "name": "category",
+              "value": "={{$json.category}}"
+            },
+            {
+              "name": "country",
+              "value": "={{$json.country}}"
+            }
           ]
         },
         "options": {}
@@ -121,17 +172,94 @@
       "name": "Notify APEX Backend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1570, 500]
+      "position": [
+        1570,
+        500
+      ]
     }
   ],
   "connections": {
-    "Webhook Trigger": { "main": [[{ "node": "Prepare Search Query", "type": "main", "index": 0 }]] },
-    "Prepare Search Query": { "main": [[{ "node": "Scrape Google Maps", "type": "main", "index": 0 }]] },
-    "Scrape Google Maps": { "main": [[{ "node": "Parse & Extract Leads", "type": "main", "index": 0 }]] },
-    "Parse & Extract Leads": { "main": [[{ "node": "Calculate ICP Score", "type": "main", "index": 0 }]] },
-    "Calculate ICP Score": { "main": [[{ "node": "Filter ICP >= 60", "type": "main", "index": 0 }]] },
-    "Filter ICP >= 60": { "main": [[{ "node": "Save to PostgreSQL", "type": "main", "index": 0 }, { "node": "Notify APEX Backend", "type": "main", "index": 0 }]] }
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Prepare Search Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Search Query": {
+      "main": [
+        [
+          {
+            "node": "Scrape Google Maps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Google Maps": {
+      "main": [
+        [
+          {
+            "node": "Parse & Extract Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Extract Leads": {
+      "main": [
+        [
+          {
+            "node": "Calculate ICP Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate ICP Score": {
+      "main": [
+        [
+          {
+            "node": "Filter ICP >= 60",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter ICP >= 60": {
+      "main": [
+        [
+          {
+            "node": "Save to PostgreSQL",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify APEX Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" },
-  "tags": [{ "name": "APEX" }, { "name": "Scraper" }]
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "APEX"
+    },
+    {
+      "name": "Scraper"
+    }
+  ]
 }
