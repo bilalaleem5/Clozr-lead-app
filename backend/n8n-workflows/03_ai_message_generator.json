@@ -1,0 +1,210 @@
+{
+    "name": "APEX - AI Message Generator",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "generate-messages",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Campaign Launch Trigger",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract campaign config from webhook\nconst campaign = $input.first().json.body;\nreturn [{\n  json: {\n    campaignId: campaign.campaignId,\n    serviceDescription: campaign.serviceDescription || 'AI-powered lead generation',\n    tone: campaign.tone || 'friendly',\n    specialOffer: campaign.specialOffer || '',\n    channels: campaign.channels || ['email', 'whatsapp']\n  }\n}];"
+            },
+            "id": "extract-campaign",
+            "name": "Extract Campaign Config",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                470,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "http://localhost:5000/api/leads",
+                "options": {}
+            },
+            "id": "fetch-leads",
+            "name": "Fetch Qualified Leads",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4,
+            "position": [
+                690,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Merge campaign config with each lead\nconst campaign = $('Extract Campaign Config').first().json;\nconst leads = $input.all();\n\nreturn leads.map(lead => ({\n  json: {\n    ...lead.json,\n    campaignId: campaign.campaignId,\n    serviceDescription: campaign.serviceDescription,\n    tone: campaign.tone,\n    specialOffer: campaign.specialOffer,\n    channels: campaign.channels\n  }\n}));"
+            },
+            "id": "merge-data",
+            "name": "Merge Lead + Campaign",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                910,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "resource": "chat",
+                "model": "gpt-4o",
+                "messages": {
+                    "values": [
+                        {
+                            "role": "system",
+                            "content": "You are APEX — an AI Sales Intelligence and Autonomous Outreach Closing Agent. Your mission is to convert cold leads into warm conversations that result in booked meetings. You write like a sharp, experienced human sales closer — never like a bot.\n\nSECTION B — MESSAGE RULES:\nNEVER:\n- Start with 'Hi I am [name] from [company]'\n- Use: synergy, leverage, hope this finds you well\n- Pitch the service in message 1\n- Sound like a template\n- Use more than 4 lines on WhatsApp\n\nALWAYS:\n- Open with something specific to their business\n- Trigger curiosity or concern in line 1\n- Use ONE pain point only\n- End with ONE micro-question — never a pitch\n- Sound like a peer, not a vendor\n\nSECTION C — MESSAGE FORMAT:\n\nWHATSAPP:\nLine 1: Specific observation about their business\nLine 2: Pain point in their world, not your product\nLine 3: Social proof hint\nLine 4: One micro-question CTA\nMax 60 words. Conversational tone.\n\nEMAIL:\nSubject: Curiosity-based, max 7 words\nPara 1: Specific observation about their business\nPara 2: Pain point + what it costs them\nPara 3: Brief proof from similar businesses\nPara 4: One soft question CTA — no calendar link in message 1\nSignature: First name only, no titles\n\nLINKEDIN:\nLine 1: Genuine observation about their work\nLine 2: Connect to relevant insight\nLine 3: Ask their opinion — not a meeting\nMax 50 words. Zero pitch.\n\nSECTION D — FOLLOW-UP SEQUENCE:\nDay 3: Value-add — share one industry insight, NOT a pitch repeat\nDay 6: Complete reframe — new angle, new pain, same service\nDay 10: Takeaway close — withdraw interest to trigger FOMO\n\nOUTPUT FORMAT (respond in valid JSON only):\n{\n  \"lead_analysis\": { \"lead_type\": \"\", \"industry\": \"\", \"pain_probability\": \"\", \"primary_pain\": \"\", \"outreach_angle\": \"\", \"recommended_channel\": \"\", \"tone\": \"\" },\n  \"message_whatsapp\": \"\",\n  \"message_email_subject\": \"\",\n  \"message_email_body\": \"\",\n  \"message_linkedin\": \"\",\n  \"followup_day3\": \"\",\n  \"followup_day6\": \"\",\n  \"followup_day10\": \"\",\n  \"objection_prep\": { \"likely_objection\": \"\", \"response\": \"\" }\n}"
+                        },
+                        {
+                            "role": "user",
+                            "content": "Generate personalized outreach messages for this lead:\n\nLead Name: {{$json.name}}\nCompany: {{$json.company}}\nIndustry: {{$json.industry}}\nLocation: {{$json.country}}\nService: {{$json.serviceDescription}}\nSpecial Offer: {{$json.specialOffer}}\nTone: {{$json.tone}}\nChannels: {{$json.channels}}"
+                        }
+                    ]
+                },
+                "options": {
+                    "temperature": 0.8,
+                    "maxTokens": 1500
+                }
+            },
+            "id": "openai-generate",
+            "name": "Generate with OpenAI",
+            "type": "n8n-nodes-base.openAi",
+            "typeVersion": 1,
+            "position": [
+                1130,
+                300
+            ],
+            "credentials": {
+                "openAiApi": {
+                    "id": "CONFIGURE_YOUR_OPENAI_CREDENTIAL_ID",
+                    "name": "APEX OpenAI"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse AI response and save each message to the DB\nconst lead = $('Merge Lead + Campaign').first().json;\nconst aiResponse = JSON.parse($input.first().json.message.content);\n\nconst messages = [];\n\n// Initial messages per channel\nif (lead.channels.includes('whatsapp') && aiResponse.message_whatsapp) {\n  messages.push({\n    lead_id: lead.id,\n    campaign_id: lead.campaignId,\n    channel: 'whatsapp',\n    content: aiResponse.message_whatsapp,\n    type: 'initial',\n    status: 'pending'\n  });\n}\n\nif (lead.channels.includes('email') && aiResponse.message_email_body) {\n  messages.push({\n    lead_id: lead.id,\n    campaign_id: lead.campaignId,\n    channel: 'email',\n    content: JSON.stringify({ subject: aiResponse.message_email_subject, body: aiResponse.message_email_body }),\n    type: 'initial',\n    status: 'pending'\n  });\n}\n\nif (lead.channels.includes('linkedin') && aiResponse.message_linkedin) {\n  messages.push({\n    lead_id: lead.id,\n    campaign_id: lead.campaignId,\n    channel: 'linkedin',\n    content: aiResponse.message_linkedin,\n    type: 'initial',\n    status: 'pending'\n  });\n}\n\n// Follow-ups (stored with scheduled_at offsets)\nconst followups = [\n  { type: 'followup1', content: aiResponse.followup_day3, dayOffset: 3 },\n  { type: 'followup2', content: aiResponse.followup_day6, dayOffset: 6 },\n  { type: 'followup3', content: aiResponse.followup_day10, dayOffset: 10 }\n];\n\nfor (const fu of followups) {\n  if (fu.content) {\n    const scheduledAt = new Date();\n    scheduledAt.setDate(scheduledAt.getDate() + fu.dayOffset);\n    messages.push({\n      lead_id: lead.id,\n      campaign_id: lead.campaignId,\n      channel: lead.channels[0],\n      content: fu.content,\n      type: fu.type,\n      status: 'scheduled',\n      scheduled_at: scheduledAt.toISOString()\n    });\n  }\n}\n\nreturn messages.map(m => ({ json: m }));"
+            },
+            "id": "parse-and-store",
+            "name": "Parse AI & Create Messages",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1350,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://localhost:5000/api/messages",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json) }}",
+                "options": {}
+            },
+            "id": "save-messages",
+            "name": "Save Messages to DB",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4,
+            "position": [
+                1570,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Campaign Launch Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Campaign Config",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Campaign Config": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Qualified Leads",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Qualified Leads": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Lead + Campaign",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Merge Lead + Campaign": {
+            "main": [
+                [
+                    {
+                        "node": "Generate with OpenAI",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Generate with OpenAI": {
+            "main": [
+                [
+                    {
+                        "node": "Parse AI & Create Messages",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse AI & Create Messages": {
+            "main": [
+                [
+                    {
+                        "node": "Save Messages to DB",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "tags": [
+        {
+            "name": "APEX"
+        },
+        {
+            "name": "AI"
+        },
+        {
+            "name": "OpenAI"
+        }
+    ]
+}

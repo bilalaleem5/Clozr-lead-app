@@ -1,0 +1,19 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "api/index.js",
+            "use": "@vercel/node"
+        }
+    ],
+    "rewrites": [
+        {
+            "source": "/api/(.*)",
+            "destination": "/api"
+        }
+    ],
+    "env": {
+        "DATABASE_URL": "@database_url",
+        "OPENAI_API_KEY": "@openai_api_key"
+    }
+}

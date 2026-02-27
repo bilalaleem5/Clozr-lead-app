@@ -1,0 +1,196 @@
+{
+    "name": "APEX - WhatsApp Sender",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 5
+                        }
+                    ]
+                }
+            },
+            "id": "cron-trigger",
+            "name": "Poll Every 5 Min",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "http://localhost:5000/api/messages?status=pending&channel=whatsapp",
+                "options": {}
+            },
+            "id": "fetch-pending",
+            "name": "Fetch Pending WhatsApp",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4,
+            "position": [
+                470,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const msg = $input.first().json;\nreturn [{\n  json: {\n    messageId: msg.id,\n    leadId: msg.lead_id,\n    phone: msg.lead_phone || '+1234567890',\n    body: msg.content\n  }\n}];"
+            },
+            "id": "prepare-wa",
+            "name": "Prepare WA Payload",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                690,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://graph.facebook.com/v18.0/={{$env.WHATSAPP_PHONE_ID}}/messages",
+                "authentication": "genericCredentialType",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer {{$env.WHATSAPP_TOKEN}}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{$json.phone}}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"body\": \"{{$json.body}}\"\n  }\n}",
+                "options": {}
+            },
+            "id": "send-whatsapp",
+            "name": "Send via WhatsApp API",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4,
+            "position": [
+                910,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "http://localhost:5000/api/messages/={{$('Prepare WA Payload').first().json.messageId}}",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "value": "sent"
+                        },
+                        {
+                            "name": "sent_at",
+                            "value": "={{new Date().toISOString()}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "update-status",
+            "name": "Mark as Sent",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4,
+            "position": [
+                1130,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Random delay 30s-2min between sends\nconst delay = Math.floor(Math.random() * 90000) + 30000;\nawait new Promise(resolve => setTimeout(resolve, delay));\nreturn $input.all();"
+            },
+            "id": "human-delay",
+            "name": "Human-like Delay",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                690,
+                500
+            ]
+        }
+    ],
+    "connections": {
+        "Poll Every 5 Min": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Pending WhatsApp",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Pending WhatsApp": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare WA Payload",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare WA Payload": {
+            "main": [
+                [
+                    {
+                        "node": "Human-like Delay",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Human-like Delay": {
+            "main": [
+                [
+                    {
+                        "node": "Send via WhatsApp API",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send via WhatsApp API": {
+            "main": [
+                [
+                    {
+                        "node": "Mark as Sent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "tags": [
+        {
+            "name": "APEX"
+        },
+        {
+            "name": "WhatsApp"
+        },
+        {
+            "name": "Sender"
+        }
+    ]
+}
