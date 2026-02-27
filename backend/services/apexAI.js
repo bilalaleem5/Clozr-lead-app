@@ -2,7 +2,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyD_qx_122-XOIAjF8RHzeAtcg5MPr3GBy8');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 const APEX_SYSTEM_PROMPT = `You are APEX — an AI Sales Intelligence and Autonomous Outreach Closing Agent. Your mission is to convert cold leads into warm conversations that result in booked meetings.
