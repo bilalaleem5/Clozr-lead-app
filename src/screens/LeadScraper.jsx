@@ -1,13 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Loader2, Download, Play, Filter, Globe2 } from 'lucide-react';
-
-const mockLeads = [
-    { id: 1, name: 'Apex Real Estate', contact: 'John Smith (CEO)', email: 'john@apexre.com', phone: '+1 234 567 8900', rating: 4.8, icp: 95 },
-    { id: 2, name: 'Dental Excellence', contact: 'Dr. Sarah Lee', email: 'hello@dentalexc.com', phone: '+1 987 654 3210', rating: 4.5, icp: 85 },
-    { id: 3, name: 'Growth SaaS', contact: 'Mike Johnson', email: '-', phone: '+44 20 7123 4567', rating: 3.9, icp: 65 },
-    { id: 4, name: 'Digital Flow Agency', contact: 'Emily Chen (CMO)', email: 'emily@digitalflow.io', phone: '-', rating: 5.0, icp: 70 },
-    { id: 5, name: 'Urban Dentists', contact: 'Unknown', email: 'info@urbandental.com', phone: '+1 555 123 4567', rating: 4.1, icp: 55 },
-];
+import api from '../services/api';
 
 const getIcpColor = (score) => {
     if (score >= 80) return 'text-brand-accent bg-brand-accent/10 border-brand-accent/20';
@@ -18,21 +11,66 @@ const getIcpColor = (score) => {
 const LeadScraper = () => {
     const [isScraping, setIsScraping] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [category, setCategory] = useState('');
+    const [country, setCountry] = useState('');
+    const [leads, setLeads] = useState([]);
+    const [totalFound, setTotalFound] = useState(0);
 
-    const handleScrape = () => {
+    const handleScrape = async () => {
+        if (!category || !country) {
+            alert('Please enter both Category and Country!');
+            return;
+        }
+
         setIsScraping(true);
         setProgress(0);
+        setLeads([]);
+
+        // Progress animation
         const interval = setInterval(() => {
             setProgress((prev) => {
-                if (prev >= 100) {
+                if (prev >= 90) {
                     clearInterval(interval);
-                    setIsScraping(false);
-                    return 100;
+                    return 90;
                 }
-                return prev + 10;
+                return prev + Math.random() * 15;
             });
-        }, 300);
+        }, 500);
+
+        try {
+            // Call backend → backend calls n8n webhook
+            const result = await api.triggerScraper({ category, country });
+
+            clearInterval(interval);
+            setProgress(100);
+
+            // If we got leads back (from mock or n8n)
+            if (result.leads && result.leads.length > 0) {
+                setLeads(result.leads);
+                setTotalFound(result.leads.length);
+            } else if (result.data && Array.isArray(result.data)) {
+                setLeads(result.data);
+                setTotalFound(result.data.length);
+            } else {
+                // Fetch from DB after scrape
+                const dbLeads = await api.getLeads();
+                if (Array.isArray(dbLeads) && dbLeads.length > 0) {
+                    setLeads(dbLeads);
+                    setTotalFound(dbLeads.length);
+                }
+            }
+
+            setTimeout(() => setIsScraping(false), 500);
+        } catch (error) {
+            clearInterval(interval);
+            setProgress(0);
+            setIsScraping(false);
+            console.error('Scraping failed:', error);
+        }
     };
+
+    // Use scraped leads or show placeholder
+    const displayLeads = leads.length > 0 ? leads : [];
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -50,6 +88,8 @@ const LeadScraper = () => {
                         <input
                             type="text"
                             list="categories"
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
                             placeholder="e.g. Real Estate, Dentists..."
                             className="w-full bg-slate-900 border border-dark-border text-slate-200 text-sm rounded-lg px-3 py-2 focus:ring-1 focus:ring-brand-primary outline-none"
                         />
@@ -68,6 +108,8 @@ const LeadScraper = () => {
                             <input
                                 type="text"
                                 list="countries"
+                                value={country}
+                                onChange={(e) => setCountry(e.target.value)}
                                 placeholder="e.g. United States, UK..."
                                 className="w-full bg-slate-900 border border-dark-border text-slate-200 text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-brand-primary outline-none"
                             />
@@ -100,8 +142,8 @@ const LeadScraper = () => {
                         {isScraping ? (
                             <div className="space-y-2">
                                 <div className="flex justify-between text-xs font-medium text-slate-300">
-                                    <span>Scraping in progress...</span>
-                                    <span>{progress}%</span>
+                                    <span>Scraping {category} in {country}...</span>
+                                    <span>{Math.round(progress)}%</span>
                                 </div>
                                 <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
                                     <div className="bg-brand-primary h-2 transition-all duration-300" style={{ width: `${progress}%` }}></div>
@@ -110,7 +152,10 @@ const LeadScraper = () => {
                         ) : (
                             <div className="text-sm text-slate-400 flex items-center">
                                 <Filter size={16} className="mr-2" />
-                                Ready to extract leads matching your ICP score.
+                                {leads.length > 0
+                                    ? `✅ Found ${totalFound} leads matching your ICP criteria`
+                                    : 'Ready to extract leads matching your ICP score.'
+                                }
                             </div>
                         )}
                     </div>
@@ -129,7 +174,7 @@ const LeadScraper = () => {
             <div className="bg-dark-card border border-dark-border rounded-xl overflow-hidden mt-6">
                 <div className="px-6 py-4 flex justify-between items-center border-b border-dark-border bg-slate-900/50">
                     <h2 className="text-lg font-bold text-slate-100 flex items-center">
-                        Results <span className="ml-3 text-xs font-medium bg-slate-800 text-slate-300 px-2 py-1 rounded-full border border-dark-border">1,245 Found</span>
+                        Results <span className="ml-3 text-xs font-medium bg-slate-800 text-slate-300 px-2 py-1 rounded-full border border-dark-border">{totalFound || displayLeads.length} Found</span>
                     </h2>
                     <div className="flex space-x-3">
                         <button className="flex items-center space-x-2 px-4 py-2 border border-dark-border text-slate-300 text-sm rounded-lg hover:bg-slate-800 transition-colors">
@@ -156,22 +201,28 @@ const LeadScraper = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {mockLeads.map((lead) => (
-                                <tr key={lead.id} className="border-b border-dark-border last:border-0 hover:bg-white/5 transition-colors">
-                                    <td className="px-6 py-4 font-medium text-slate-200">{lead.name}</td>
-                                    <td className="px-6 py-4">{lead.contact}</td>
-                                    <td className="px-6 py-4">{lead.email}</td>
-                                    <td className="px-6 py-4">{lead.phone}</td>
-                                    <td className="px-6 py-4 text-slate-400">⭐ {lead.rating.toFixed(1)}</td>
+                            {displayLeads.length > 0 ? displayLeads.map((lead, idx) => (
+                                <tr key={lead.id || idx} className="border-b border-dark-border last:border-0 hover:bg-white/5 transition-colors">
+                                    <td className="px-6 py-4 font-medium text-slate-200">{lead.name || lead.company}</td>
+                                    <td className="px-6 py-4">{lead.contact || lead.name || '-'}</td>
+                                    <td className="px-6 py-4">{lead.email || '-'}</td>
+                                    <td className="px-6 py-4">{lead.phone || '-'}</td>
+                                    <td className="px-6 py-4 text-slate-400">⭐ {(lead.rating || 0).toFixed ? (lead.rating || 0).toFixed(1) : lead.rating || '–'}</td>
                                     <td className="px-6 py-4">
                                         <div className="flex justify-center">
-                                            <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${getIcpColor(lead.icp)}`}>
-                                                {lead.icp}
+                                            <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${getIcpColor(lead.icp_score || lead.icp || 0)}`}>
+                                                {lead.icp_score || lead.icp || 0}
                                             </span>
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                            )) : (
+                                <tr>
+                                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
+                                        Enter a category & country, then click "Start Scraper" to begin.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
