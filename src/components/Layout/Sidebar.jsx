@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, DownloadCloud, Megaphone, MessagesSquare, Settings } from 'lucide-react';
+import { LayoutDashboard, MapPin, Linkedin, Megaphone, MessagesSquare, Settings } from 'lucide-react';
 import clsx from 'clsx';
 
 const Sidebar = () => {
     const navItems = [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-        { name: 'Lead Scraper', path: '/scraper', icon: DownloadCloud },
+        { name: 'Google Maps', path: '/google-scraper', icon: MapPin },
+        { name: 'LinkedIn', path: '/linkedin-scraper', icon: Linkedin },
         { name: 'Campaign Builder', path: '/campaigns', icon: Megaphone },
         { name: 'Reply Center', path: '/replies', icon: MessagesSquare },
     ];
