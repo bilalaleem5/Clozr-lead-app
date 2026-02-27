@@ -34,9 +34,9 @@ app.use('/api/scraper', scraperRouter);
 
 // Basic health check endpoint
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'APEX Engine is running' });
+    res.json({ status: 'ok', message: 'CLOZR Engine is running' });
 });
 
 app.listen(PORT, () => {
-    console.log(`APEX Backend Server running on port ${PORT}`);
+    console.log(`CLOZR Backend Server running on port ${PORT}`);
 });

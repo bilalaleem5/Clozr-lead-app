@@ -15,7 +15,7 @@ const Sidebar = () => {
         <div className="w-64 bg-dark-card border-r border-dark-border flex flex-col h-full">
             <div className="p-6">
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
-                    APEX
+                    CLOZR
                 </h1>
                 <p className="text-xs text-slate-400 mt-1">AI Lead Acquisition</p>
             </div>

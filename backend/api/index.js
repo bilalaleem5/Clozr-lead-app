@@ -33,7 +33,7 @@ app.use('/api/scheduler', schedulerRouter);
 app.use('/api/scraper', scraperRouter);
 
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'APEX Engine is running on Vercel' });
+    res.json({ status: 'ok', message: 'CLOZR Engine is running on Vercel' });
 });
 
 // Export for Vercel serverless

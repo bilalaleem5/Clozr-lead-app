@@ -1,4 +1,4 @@
-// APEX AI Brain — Full System Prompt & Gemini Integration
+// CLOZR AI Brain — Full System Prompt & Gemini Integration
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 

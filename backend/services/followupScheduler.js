@@ -1,4 +1,4 @@
-// APEX Follow-Up Scheduler
+// CLOZR Follow-Up Scheduler
 // Run this as a cron job: node services/followupScheduler.js
 // Or trigger via n8n cron workflow
 
