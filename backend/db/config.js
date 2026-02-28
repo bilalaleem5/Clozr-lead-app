@@ -4,9 +4,12 @@ const { Pool } = require('@neondatabase/serverless');
 require('dotenv').config();
 
 // Support both DATABASE_URL (Neon/Vercel) and individual vars
-const pool = process.env.DATABASE_URL
+// Vercel sometimes names the injected variable POSTGRES_URL or STORAGE_POSTGRES_URL
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.STORAGE_POSTGRES_URL;
+
+const pool = connectionString
     ? new Pool({
-        connectionString: process.env.DATABASE_URL,
+        connectionString: connectionString,
     })
     : new pg.Pool({
         user: process.env.DB_USER || 'postgres',
