@@ -1,5 +1,5 @@
-// APEX Frontend API Helper
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// CLOZR Frontend API Helper
+const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
 
 const api = {
     // Dashboard
@@ -40,6 +40,9 @@ const api = {
 
     // Follow-up scheduler
     runScheduler: () => fetch(`${API_BASE}/scheduler/run`, { method: 'POST' }).then(r => r.json()),
+
+    // System deployment setup
+    setupSystem: () => fetch(`${API_BASE}/system/setup`).then(r => r.json()),
 };
 
 export default api;

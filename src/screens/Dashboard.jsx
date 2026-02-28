@@ -65,8 +65,7 @@ const Dashboard = () => {
     const handleSetupDb = async () => {
         setIsSeeding(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/system/setup`);
-            const data = await res.json();
+            const data = await api.setupSystem();
             if (data.success) {
                 alert('Database seeded successfully!');
                 loadData();
@@ -74,7 +73,7 @@ const Dashboard = () => {
                 alert('Database setup failed: ' + data.message);
             }
         } catch (err) {
-            alert('Error connecting to setup endpoint');
+            alert('Error connecting to setup endpoint. Ensure backend is running.');
         }
         setIsSeeding(false);
     };
