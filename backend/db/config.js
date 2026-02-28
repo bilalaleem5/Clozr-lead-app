@@ -5,7 +5,7 @@ require('dotenv').config();
 
 // Support both DATABASE_URL (Neon/Vercel) and individual vars
 // Vercel sometimes names the injected variable POSTGRES_URL or STORAGE_POSTGRES_URL
-const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.STORAGE_POSTGRES_URL;
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.STORAGE_POSTGRES_URL || process.env.POSTGRES_POSTGRES_URL;
 
 const pool = connectionString
     ? new Pool({
