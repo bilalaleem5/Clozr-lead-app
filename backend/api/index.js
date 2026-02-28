@@ -32,6 +32,12 @@ app.use('/api/reply', replyRouter);
 app.use('/api/scheduler', schedulerRouter);
 app.use('/api/scraper', scraperRouter);
 
+app.get('/api/system/setup', async (req, res) => {
+    const { seedDatabase } = require('../db/setup');
+    const result = await seedDatabase();
+    res.json(result);
+});
+
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'CLOZR Engine is running on Vercel' });
 });

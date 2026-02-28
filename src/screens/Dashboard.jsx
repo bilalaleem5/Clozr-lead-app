@@ -1,30 +1,21 @@
-import React from 'react';
-import { Users, Send, Reply, Flame } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Send, Reply, Flame, DatabaseBackup } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import api from '../services/api';
 
-const data = [
-    { name: 'Day 1', outreach: 400, replies: 24 },
-    { name: 'Day 5', outreach: 1200, replies: 139 },
-    { name: 'Day 10', outreach: 2000, replies: 480 },
-    { name: 'Day 15', outreach: 2780, replies: 690 },
-    { name: 'Day 20', outreach: 1890, replies: 480 },
-    { name: 'Day 25', outreach: 2390, replies: 780 },
-    { name: 'Day 30', outreach: 3490, replies: 930 },
-];
-
-const activityFeed = [
-    { id: 1, type: 'reply', lead: 'John Doe', company: 'TechNova', time: '10 mins ago', text: 'Sounds interesting. Can we explore this?' },
-    { id: 2, type: 'followup', lead: 'Sarah Smith', company: 'RealEstate Pro', time: '30 mins ago', text: 'Day 3 Follow-up sent via WhatsApp.' },
-    { id: 3, type: 'hot', lead: 'Mike Johnson', company: 'Digital Agency', time: '1 hour ago', text: 'Replied: Let\'s have a call tomorrow to discuss pricing.' },
-    { id: 4, type: 'reply', lead: 'Emily Chen', company: 'SaaS Corp', time: '2 hours ago', text: 'Can you send over more info on how this works?' }
+const chartData = [
+    { name: 'Day 1', outreach: 40, replies: 2 },
+    { name: 'Day 5', outreach: 120, replies: 13 },
+    { name: 'Day 10', outreach: 200, replies: 48 },
+    { name: 'Day 15', outreach: 278, replies: 69 },
 ];
 
 const StatCard = ({ title, value, icon: Icon, trend }) => (
     <div className="bg-dark-card border border-dark-border rounded-xl p-6 flex items-center justify-between">
         <div>
             <p className="text-slate-400 text-sm font-medium">{title}</p>
-            <p className="text-2xl font-bold text-slate-100 mt-2">{value}</p>
-            <span className={`text-xs mt-2 inline-block ${trend > 0 ? 'text-brand-accent' : 'text-red-400'}`}>
+            <p className="text-2xl font-bold text-slate-100 mt-2">{value !== null ? value : '...'}</p>
+            <span className={`text-xs mt-2 inline-block ${trend > 0 ? 'text-brand-accent' : 'text-slate-500'}`}>
                 {trend > 0 ? '+' : ''}{trend}% from last month
             </span>
         </div>
@@ -35,6 +26,59 @@ const StatCard = ({ title, value, icon: Icon, trend }) => (
 );
 
 const Dashboard = () => {
+    const [stats, setStats] = useState({ leadsScraped: null, messagesSent: null, replyRate: null, hotLeads: null });
+    const [recentActivity, setRecentActivity] = useState([]);
+    const [isSeeding, setIsSeeding] = useState(false);
+
+    const loadData = async () => {
+        try {
+            const data = await api.getDashboard();
+            setStats({
+                leadsScraped: data.leadsScraped || 0,
+                messagesSent: data.messagesSent || 0,
+                replyRate: data.replyRate || 0,
+                hotLeads: data.hotLeads || 0
+            });
+
+            // Fetch recent conversations for activity feed
+            const convos = await api.getConversations();
+            if (Array.isArray(convos)) {
+                const mapped = convos.slice(0, 5).map(c => ({
+                    id: c.id,
+                    type: c.intent_score >= 40 ? 'hot' : 'reply',
+                    lead: c.lead_name || 'Lead',
+                    company: c.company || 'Company',
+                    time: new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    text: c.content
+                }));
+                setRecentActivity(mapped);
+            }
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const handleSetupDb = async () => {
+        setIsSeeding(true);
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/system/setup`);
+            const data = await res.json();
+            if (data.success) {
+                alert('Database seeded successfully!');
+                loadData();
+            } else {
+                alert('Database setup failed: ' + data.message);
+            }
+        } catch (err) {
+            alert('Error connecting to setup endpoint');
+        }
+        setIsSeeding(false);
+    };
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
@@ -43,8 +87,9 @@ const Dashboard = () => {
                     <p className="text-slate-400 text-sm mt-1">Monitor your lead acquisition and automated outreach.</p>
                 </div>
                 <div className="flex space-x-3">
-                    <button className="px-4 py-2 border border-dark-border text-slate-200 rounded-lg hover:bg-slate-800 transition-colors">
-                        View Hot Leads
+                    <button onClick={handleSetupDb} disabled={isSeeding} className="px-4 py-2 border border-brand-accent text-brand-accent rounded-lg hover:bg-brand-accent/10 transition-colors flex items-center space-x-2">
+                        <DatabaseBackup size={16} />
+                        <span>{isSeeding ? 'Setting up...' : 'Setup / Seed DB'}</span>
                     </button>
                     <button className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-blue-600 transition-colors shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/40">
                         + New Campaign
@@ -54,10 +99,10 @@ const Dashboard = () => {
 
             {/* Stat Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="Leads Scraped" value="12,450" icon={Users} trend={14} />
-                <StatCard title="Messages Sent" value="8,230" icon={Send} trend={23} />
-                <StatCard title="Reply Rate" value="18.5%" icon={Reply} trend={4.2} />
-                <StatCard title="Hot Leads" value="142" icon={Flame} trend={32} />
+                <StatCard title="Leads Scraped" value={stats.leadsScraped} icon={Users} trend={14} />
+                <StatCard title="Messages Sent" value={stats.messagesSent} icon={Send} trend={23} />
+                <StatCard title="Reply Rate" value={stats.replyRate !== null ? `${stats.replyRate}%` : null} icon={Reply} trend={4.2} />
+                <StatCard title="Hot Leads" value={stats.hotLeads} icon={Flame} trend={32} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -72,7 +117,7 @@ const Dashboard = () => {
                     </div>
                     <div className="h-72">
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={data}>
+                            <LineChart data={chartData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                                 <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
@@ -90,13 +135,13 @@ const Dashboard = () => {
                 {/* Activity Feed */}
                 <div className="bg-dark-card border border-dark-border rounded-xl p-6 flex flex-col pt-0">
                     <div className="sticky top-0 bg-dark-card pt-6 pb-4 border-b border-dark-border z-10">
-                        <h2 className="text-lg font-bold text-slate-100">Live Activity</h2>
+                        <h2 className="text-lg font-bold text-slate-100">Recent Activity (Live DB)</h2>
                     </div>
                     <div className="mt-4 space-y-4 overflow-y-auto flex-1 h-[280px] custom-scrollbar">
-                        {activityFeed.map((activity) => (
-                            <div key={activity.id} className="relative pl-6 border-l-2 border-dark-border pb-4 last:border-l-0 last:pb-0">
+                        {recentActivity.length > 0 ? recentActivity.map((activity, i) => (
+                            <div key={activity.id || i} className="relative pl-6 border-l-2 border-dark-border pb-4 last:border-l-0 last:pb-0">
                                 <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-dark-card ${activity.type === 'hot' ? 'bg-red-500' :
-                                        activity.type === 'reply' ? 'bg-brand-accent' : 'bg-brand-primary'
+                                    activity.type === 'reply' ? 'bg-brand-accent' : 'bg-brand-primary'
                                     }`} />
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -106,7 +151,9 @@ const Dashboard = () => {
                                     <span className="text-xs text-slate-500 whitespace-nowrap ml-2">{activity.time}</span>
                                 </div>
                             </div>
-                        ))}
+                        )) : (
+                            <p className="text-slate-500 text-sm text-center mt-10">No recent database activity to show.</p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -115,3 +162,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

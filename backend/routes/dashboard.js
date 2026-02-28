@@ -16,18 +16,25 @@ router.get('/', async (req, res) => {
         const msgRes = await db.query('SELECT COUNT(*) FROM messages WHERE status = $1', ['sent']);
         const hotLeadsRes = await db.query('SELECT COUNT(DISTINCT lead_id) FROM conversations WHERE intent_score >= 41');
 
-        stats.leadsScraped = parseInt(leadsRes.rows[0].count, 10);
-        stats.messagesSent = parseInt(msgRes.rows[0].count, 10);
-        stats.hotLeads = parseInt(hotLeadsRes.rows[0].count, 10);
+        stats.leadsScraped = parseInt(leadsRes.rows[0].count, 10) || 0;
+        stats.messagesSent = parseInt(msgRes.rows[0].count, 10) || 0;
+        stats.hotLeads = parseInt(hotLeadsRes.rows[0].count, 10) || 0;
 
-        // In local testing when db is empty this defaults to 0, which breaks UI aesthetic
-        // So we'll return realistic mock data if db is empty or failing
-        if (stats.leadsScraped === 0) throw new Error('Empty DB fallback');
+        // Calculate a basic reply rate if there are sent messages
+        const replyRes = await db.query('SELECT COUNT(*) FROM conversations WHERE direction = $1', ['inbound']);
+        const replies = parseInt(replyRes.rows[0].count, 10) || 0;
+
+        if (stats.messagesSent > 0) {
+            stats.replyRate = ((replies / stats.messagesSent) * 100).toFixed(1);
+        } else {
+            stats.replyRate = 0;
+        }
 
         res.json(stats);
     } catch (error) {
-        // Fallback static mock data for UI testing mode if DB not populated
-        res.json(stats);
+        console.error("Dashboard error:", error);
+        // Fallback if DB not populated or failing entirely
+        res.json({ leadsScraped: 0, messagesSent: 0, replyRate: 0, hotLeads: 0, error: 'Database not connected or empty' });
     }
 });
 
