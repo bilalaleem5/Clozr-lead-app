@@ -10,14 +10,11 @@ const chartData = [
     { name: 'Day 15', outreach: 278, replies: 69 },
 ];
 
-const StatCard = ({ title, value, icon: Icon, trend }) => (
+const StatCard = ({ title, value, icon: Icon }) => (
     <div className="bg-dark-card border border-dark-border rounded-xl p-6 flex items-center justify-between">
         <div>
             <p className="text-slate-400 text-sm font-medium">{title}</p>
             <p className="text-2xl font-bold text-slate-100 mt-2">{value !== null ? value : '...'}</p>
-            <span className={`text-xs mt-2 inline-block ${trend > 0 ? 'text-brand-accent' : 'text-slate-500'}`}>
-                {trend > 0 ? '+' : ''}{trend}% from last month
-            </span>
         </div>
         <div className="w-12 h-12 bg-slate-900 rounded-full flex justify-center items-center text-brand-primary">
             <Icon size={24} />
@@ -98,10 +95,10 @@ const Dashboard = () => {
 
             {/* Stat Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="Leads Scraped" value={stats.leadsScraped} icon={Users} trend={14} />
-                <StatCard title="Messages Sent" value={stats.messagesSent} icon={Send} trend={23} />
-                <StatCard title="Reply Rate" value={stats.replyRate !== null ? `${stats.replyRate}%` : null} icon={Reply} trend={4.2} />
-                <StatCard title="Hot Leads" value={stats.hotLeads} icon={Flame} trend={32} />
+                <StatCard title="Leads Scraped" value={stats.leadsScraped} icon={Users} />
+                <StatCard title="Messages Sent" value={stats.messagesSent} icon={Send} />
+                <StatCard title="Reply Rate" value={stats.replyRate !== null ? `${stats.replyRate}%` : null} icon={Reply} />
+                <StatCard title="Hot Leads" value={stats.hotLeads} icon={Flame} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
