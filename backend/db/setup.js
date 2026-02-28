@@ -1,14 +1,79 @@
-const fs = require('fs');
-const path = require('path');
 const db = require('./config');
 
 async function seedDatabase() {
     console.log('Starting CLOZR Database Setup...');
 
     try {
-        // 1. Run init.sql to create tables
-        const initSqlPath = path.join(__dirname, 'init.sql');
-        const initSql = fs.readFileSync(initSqlPath, 'utf8');
+        // 1. Run init.sql to create tables (Inlined for Vercel Serverless compatibility)
+        const initSql = `
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+            CREATE TABLE IF NOT EXISTS leads (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                name VARCHAR(255) NOT NULL,
+                company VARCHAR(255),
+                industry VARCHAR(255),
+                email VARCHAR(255),
+                phone VARCHAR(50),
+                website VARCHAR(255),
+                address TEXT,
+                rating DECIMAL(3,2),
+                icp_score INTEGER DEFAULT 0,
+                source VARCHAR(50),
+                category VARCHAR(100),
+                country VARCHAR(100),
+                status VARCHAR(50) DEFAULT 'new',
+                scraped_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS campaigns (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                name VARCHAR(255) NOT NULL,
+                service_description TEXT,
+                tone VARCHAR(50),
+                special_offer TEXT,
+                channels JSONB,
+                status VARCHAR(50) DEFAULT 'draft',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS messages (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                lead_id UUID REFERENCES leads(id) ON DELETE CASCADE,
+                campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
+                channel VARCHAR(50),
+                content TEXT NOT NULL,
+                type VARCHAR(50),
+                status VARCHAR(50) DEFAULT 'pending',
+                sent_at TIMESTAMP WITH TIME ZONE,
+                scheduled_at TIMESTAMP WITH TIME ZONE
+            );
+
+            CREATE TABLE IF NOT EXISTS conversations (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                lead_id UUID REFERENCES leads(id) ON DELETE CASCADE,
+                channel VARCHAR(50),
+                direction VARCHAR(20),
+                content TEXT NOT NULL,
+                intent_score INTEGER DEFAULT 0,
+                escalation_flag BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS alerts (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                lead_id UUID REFERENCES leads(id) ON DELETE CASCADE,
+                type VARCHAR(50),
+                message TEXT NOT NULL,
+                seen BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_leads_icp_score ON leads(icp_score);
+            CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
+            CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
+            CREATE INDEX IF NOT EXISTS idx_conversations_lead_id ON conversations(lead_id);
+        `;
         await db.query(initSql);
         console.log('✅ Tables created successfully.');
 
