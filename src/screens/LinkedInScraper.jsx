@@ -45,17 +45,33 @@ const LinkedInScraper = () => {
 
             if (result.error) {
                 alert(`Scraper Error: ${result.error}\n\nPlease check your n8n workflow.`);
-            } else if (result.leads && result.leads.length > 0) {
-                setLeads(result.leads);
-                setTotalFound(result.leads.length);
-            } else if (result.data && Array.isArray(result.data) && result.data[0] && Array.isArray(result.data[0].leads)) {
-                setLeads(result.data[0].leads);
-                setTotalFound(result.data[0].leads.length);
-            } else if (result.data && Array.isArray(result.data)) {
-                setLeads(result.data);
-                setTotalFound(result.data.length);
             } else {
-                alert('No leads found or invalid response from n8n.');
+                let extractedLeads = null;
+                let dataToParse = result.data || result;
+
+                // If n8n returned a stringified JSON body
+                if (typeof dataToParse === 'string') {
+                    try { dataToParse = JSON.parse(dataToParse); } catch (e) { }
+                }
+
+                // Try to find the leads array in various expected structures
+                if (Array.isArray(dataToParse) && dataToParse[0] && Array.isArray(dataToParse[0].leads)) {
+                    extractedLeads = dataToParse[0].leads;
+                } else if (dataToParse && Array.isArray(dataToParse.leads)) {
+                    extractedLeads = dataToParse.leads;
+                } else if (Array.isArray(result.leads)) {
+                    extractedLeads = result.leads;
+                } else if (Array.isArray(dataToParse) && dataToParse.length > 0 && dataToParse[0].name) {
+                    extractedLeads = dataToParse; // n8n directly returned array of leads
+                }
+
+                if (extractedLeads && extractedLeads.length > 0) {
+                    setLeads(extractedLeads);
+                    setTotalFound(extractedLeads.length);
+                } else {
+                    const responseSnippet = JSON.stringify(result).substring(0, 200);
+                    alert(`No leads found. N8n returned: \n${responseSnippet}`);
+                }
             }
             setTimeout(() => setIsScraping(false), 500);
         } catch (error) {
