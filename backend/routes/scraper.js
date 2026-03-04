@@ -20,18 +20,21 @@ router.post('/trigger', async (req, res) => {
             body: JSON.stringify({ category, country, filters }),
         });
 
+        // If n8n returns an error status (like 404 Not Found), throw it to the catch block
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`n8n webhook failed with status ${response.status}: ${errorText}`);
+        }
+
         const data = await response.json();
         res.json({ success: true, message: 'Scraper workflow triggered', data });
     } catch (error) {
-        // If n8n is not running, return a mock response
-        console.error('[Scraper Trigger] n8n not reachable:', error.message);
-        res.json({
-            success: true,
-            message: 'Scraper triggered (n8n offline — mock mode)',
-            mock: true,
-            leads: [
-                { name: 'Sample Business', company: 'Sample Corp', icp_score: 75, email: 'info@sample.com', phone: '+1-555-0100' }
-            ]
+        // Log the real error and send it to frontend instead of using mock data
+        console.error('[Scraper Trigger] n8n error:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to trigger scraper',
+            error: error.message
         });
     }
 });

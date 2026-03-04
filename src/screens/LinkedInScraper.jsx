@@ -43,18 +43,16 @@ const LinkedInScraper = () => {
             clearInterval(interval);
             setProgress(100);
 
-            if (result.leads && result.leads.length > 0) {
+            if (result.error) {
+                alert(`Scraper Error: ${result.error}\n\nPlease check your n8n workflow.`);
+            } else if (result.leads && result.leads.length > 0) {
                 setLeads(result.leads);
                 setTotalFound(result.leads.length);
             } else if (result.data && Array.isArray(result.data)) {
                 setLeads(result.data);
                 setTotalFound(result.data.length);
             } else {
-                const dbLeads = await api.getLeads();
-                if (Array.isArray(dbLeads) && dbLeads.length > 0) {
-                    setLeads(dbLeads.filter(l => l.source === 'linkedin'));
-                    setTotalFound(dbLeads.filter(l => l.source === 'linkedin').length);
-                }
+                alert('No leads found or invalid response from n8n.');
             }
             setTimeout(() => setIsScraping(false), 500);
         } catch (error) {

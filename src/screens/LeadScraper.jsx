@@ -45,19 +45,16 @@ const LeadScraper = () => {
             setProgress(100);
 
             // If we got leads back (from mock or n8n)
-            if (result.leads && result.leads.length > 0) {
+            if (result.error) {
+                alert(`Scraper Error: ${result.error}\n\nPlease check your n8n workflow.`);
+            } else if (result.leads && result.leads.length > 0) {
                 setLeads(result.leads);
                 setTotalFound(result.leads.length);
             } else if (result.data && Array.isArray(result.data)) {
                 setLeads(result.data);
                 setTotalFound(result.data.length);
             } else {
-                // Fetch from DB after scrape
-                const dbLeads = await api.getLeads();
-                if (Array.isArray(dbLeads) && dbLeads.length > 0) {
-                    setLeads(dbLeads);
-                    setTotalFound(dbLeads.length);
-                }
+                alert('No leads found or invalid response from n8n.');
             }
 
             setTimeout(() => setIsScraping(false), 500);
