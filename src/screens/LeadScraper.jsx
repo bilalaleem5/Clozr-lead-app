@@ -50,6 +50,9 @@ const LeadScraper = () => {
             } else if (result.leads && result.leads.length > 0) {
                 setLeads(result.leads);
                 setTotalFound(result.leads.length);
+            } else if (result.data && Array.isArray(result.data) && result.data[0] && Array.isArray(result.data[0].leads)) {
+                setLeads(result.data[0].leads);
+                setTotalFound(result.data[0].leads.length);
             } else if (result.data && Array.isArray(result.data)) {
                 setLeads(result.data);
                 setTotalFound(result.data.length);
