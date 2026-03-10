@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, CheckCircle2, ChevronRight, FileSpreadsheet, KeyRound, MessageSquare, Send, Sparkles, Download } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 
 const steps = ['Data Source', 'Service Details', 'Tone', 'Channels', 'Preview & Launch'];
@@ -34,17 +35,77 @@ const CampaignBuilder = () => {
     const [senderName, setSenderName] = useState("Ali Khan");
     const [isLaunching, setIsLaunching] = useState(false);
 
+    const location = useLocation();
+    const fileInputRef = useRef(null);
+    const [importedLeads, setImportedLeads] = useState([]);
+    const [dataSourceText, setDataSourceText] = useState("Use the 1,245 leads extracted today from Real Estate (US).");
+
+    // Check if leads were passed from the Scraper page
+    useEffect(() => {
+        if (location.state?.importedLeads) {
+            setImportedLeads(location.state.importedLeads);
+            setDataSourceText(`Loaded ${location.state.importedLeads.length} leads from Google Maps Scraper.`);
+        }
+    }, [location.state]);
+
+    // Handle CSV Upload parsing
+    const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const text = event.target.result;
+                const rows = text.split('\n');
+                if (rows.length < 2) return alert('CSV file is empty or missing headers');
+
+                // Very basic CSV parsing (assuming standard comma separated)
+                const headers = rows[0].split(',').map(h => h.trim().replace(/['"]/g, '').toLowerCase());
+
+                const parsedLeads = [];
+                for (let i = 1; i < rows.length; i++) {
+                    if (!rows[i].trim()) continue;
+                    // Split handling basic quotes but keeps it simple
+                    const values = rows[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || rows[i].split(',');
+
+                    const lead = {};
+                    headers.forEach((header, index) => {
+                        let val = values[index] ? values[index].replace(/^"|"$/g, '').trim() : '';
+                        if (header === 'business' || header === 'company') lead.name = val;
+                        else if (header === 'review count') lead.review_count = val;
+                        else lead[header] = val;
+                    });
+                    parsedLeads.push(lead);
+                }
+
+                setImportedLeads(parsedLeads);
+                setDataSourceText(`Successfully loaded ${parsedLeads.length} leads from ${file.name}`);
+                alert(`Loaded ${parsedLeads.length} leads!`);
+            } catch (err) {
+                console.error("CSV Parse Error:", err);
+                alert("Failed to parse CSV file.");
+            }
+        };
+        reader.readAsText(file);
+    };
+
     const handleLaunchCampaign = async () => {
         setIsLaunching(true);
         try {
             const activeChannels = Object.keys(channels).filter(key => channels[key]);
+
+            // Limit leads for demo payload to avoid huge requests if they imported thousands
+            const leadsToSend = importedLeads.length > 0 ? importedLeads.slice(0, 100) : [];
+
             const payload = {
                 name: "AI Outreach Campaign",
                 service_description: serviceDescription + " - Target: " + targetOutcome,
                 tone: selectedTone || "professional",
                 special_offer: specialOffer,
                 channels: activeChannels,
-                sender_name: senderName
+                sender_name: senderName,
+                leads: leadsToSend.length > 0 ? leadsToSend : undefined // Only send if we have them, otherwise backend fetches from DB
             };
 
             const response = await fetch('http://localhost:5000/api/campaigns', {
@@ -114,14 +175,24 @@ const CampaignBuilder = () => {
                     <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
                         <h2 className="text-xl font-bold text-slate-100 mb-4">Select Data Source</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="border-2 border-brand-primary bg-brand-primary/5 rounded-xl p-6 cursor-pointer flex flex-col items-center text-center">
-                                <div className="w-12 h-12 bg-brand-primary/20 rounded-full flex items-center justify-center mb-4 text-brand-primary">
+                            <div className={clsx("border-2 rounded-xl p-6 cursor-pointer flex flex-col items-center text-center", importedLeads.length > 0 ? "border-brand-primary bg-brand-primary/5" : "border-dark-border bg-slate-900")}>
+                                <div className={clsx("w-12 h-12 rounded-full flex items-center justify-center mb-4", importedLeads.length > 0 ? "bg-brand-primary/20 text-brand-primary" : "bg-slate-800 text-slate-400")}>
                                     <FileSpreadsheet size={24} />
                                 </div>
-                                <h3 className="font-bold text-slate-200">Last Scraped List</h3>
-                                <p className="text-sm text-slate-400 mt-2">Use the 1,245 leads extracted today from Real Estate (US).</p>
+                                <h3 className="font-bold text-slate-200">Loaded Leads</h3>
+                                <p className="text-sm text-slate-400 mt-2">{dataSourceText}</p>
                             </div>
-                            <div className="border border-dark-border bg-slate-900 rounded-xl p-6 cursor-pointer flex flex-col items-center text-center hover:border-slate-600 transition-colors">
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className="border border-dark-border bg-slate-900 rounded-xl p-6 cursor-pointer flex flex-col items-center text-center hover:border-slate-500 transition-colors"
+                            >
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    onChange={handleFileUpload}
+                                />
                                 <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-4 text-slate-400">
                                     <Download size={24} />
                                 </div>
@@ -263,7 +334,7 @@ const CampaignBuilder = () => {
                     </button>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 
