@@ -36,17 +36,28 @@ router.post('/', async (req, res) => {
         let activeLeads = [];
         if (frontendLeads && Array.isArray(frontendLeads) && frontendLeads.length > 0) {
             activeLeads = frontendLeads;
+            console.log(`Using ${activeLeads.length} leads provided from frontend CSV.`);
         } else {
             try {
                 const leadsRes = await db.query(`SELECT name, company, industry, email, phone, website, country, source FROM leads WHERE status = 'new' LIMIT 50`);
                 activeLeads = leadsRes.rows;
+                console.log(`Fetched ${activeLeads.length} new leads from database.`);
             } catch (dbErr) {
-                console.warn("DB select config failed:", dbErr.message);
+                console.warn("DB select failed:", dbErr.message);
+
+                // Fallback test dummy lead just so n8n doesn't error out entirely,
+                // but the user will see it's fallback data.
+                activeLeads = [{
+                    name: "Test Lead",
+                    company: "Test Corp",
+                    email: "test@example.com",
+                    source: "fallback"
+                }];
             }
         }
 
         if (activeLeads.length === 0) {
-            return res.status(400).json({ error: 'No leads found to run the campaign.' });
+            return res.status(400).json({ error: 'No leads found in CSV or Database to run the campaign.' });
         }
 
         // Construct the n8n Webhook Payload
