@@ -27,6 +27,47 @@ const CampaignBuilder = () => {
     const [selectedTone, setSelectedTone] = useState('');
     const [channels, setChannels] = useState({ whatsapp: true, email: false, linkedin: false });
 
+    // Form State
+    const [serviceDescription, setServiceDescription] = useState("AI-powered lead generation and automated closing system");
+    const [targetOutcome, setTargetOutcome] = useState("Book 15+ qualified sales meetings per month consistently");
+    const [specialOffer, setSpecialOffer] = useState("Free lead list scrub for the first 100 leads");
+    const [senderName, setSenderName] = useState("Ali Khan");
+    const [isLaunching, setIsLaunching] = useState(false);
+
+    const handleLaunchCampaign = async () => {
+        setIsLaunching(true);
+        try {
+            const activeChannels = Object.keys(channels).filter(key => channels[key]);
+            const payload = {
+                name: "AI Outreach Campaign",
+                service_description: serviceDescription + " - Target: " + targetOutcome,
+                tone: selectedTone || "professional",
+                special_offer: specialOffer,
+                channels: activeChannels,
+                sender_name: senderName
+            };
+
+            const response = await fetch('http://localhost:5000/api/campaigns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                alert("Campaign launched successfully! The n8n webhook has been triggered.");
+                setCurrentStep(1); // Reset to beginning or handle navigation
+            } else {
+                const errData = await response.json();
+                alert("Failed to launch campaign: " + (errData.error || "Unknown error"));
+            }
+        } catch (error) {
+            console.error("Launch error:", error);
+            alert("Error launching campaign. Check console for details.");
+        } finally {
+            setIsLaunching(false);
+        }
+    };
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500 max-w-5xl mx-auto">
             <div>
@@ -98,15 +139,19 @@ const CampaignBuilder = () => {
                         <div className="space-y-4 max-w-2xl">
                             <div>
                                 <label className="text-sm font-medium text-slate-300 mb-1 block">What do you sell?</label>
-                                <input type="text" className="w-full bg-slate-900 border border-dark-border rounded-lg px-4 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-primary outline-none" placeholder="e.g., AI lead generation software" defaultValue="AI-powered lead generation and automated closing system" />
+                                <input type="text" value={serviceDescription} onChange={e => setServiceDescription(e.target.value)} className="w-full bg-slate-900 border border-dark-border rounded-lg px-4 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-primary outline-none" placeholder="e.g., AI lead generation software" />
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-slate-300 mb-1 block">Target Outcome for Lead</label>
-                                <input type="text" className="w-full bg-slate-900 border border-dark-border rounded-lg px-4 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-primary outline-none" placeholder="e.g., Increase bookings by 30%" defaultValue="Book 15+ qualified sales meetings per month consistently" />
+                                <input type="text" value={targetOutcome} onChange={e => setTargetOutcome(e.target.value)} className="w-full bg-slate-900 border border-dark-border rounded-lg px-4 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-primary outline-none" placeholder="e.g., Increase bookings by 30%" />
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-slate-300 mb-1 block">Special Offer / Hook (Optional)</label>
-                                <input type="text" className="w-full bg-slate-900 border border-dark-border rounded-lg px-4 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-primary outline-none" placeholder="e.g., Free 14-day trial" defaultValue="Free lead list scrub for the first 100 leads" />
+                                <input type="text" value={specialOffer} onChange={e => setSpecialOffer(e.target.value)} className="w-full bg-slate-900 border border-dark-border rounded-lg px-4 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-primary outline-none" placeholder="e.g., Free 14-day trial" />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-slate-300 mb-1 block">Sender Name</label>
+                                <input type="text" value={senderName} onChange={e => setSenderName(e.target.value)} className="w-full bg-slate-900 border border-dark-border rounded-lg px-4 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-primary outline-none" placeholder="e.g., Ali Khan" />
                             </div>
                         </div>
                     </div>
@@ -209,9 +254,12 @@ const CampaignBuilder = () => {
                         <ChevronRight size={18} />
                     </button>
                 ) : (
-                    <button className="flex items-center space-x-2 px-8 py-2.5 bg-brand-secondary text-white font-bold rounded-lg hover:bg-violet-600 transition-colors shadow-lg shadow-brand-secondary/20">
+                    <button
+                        onClick={handleLaunchCampaign}
+                        disabled={isLaunching}
+                        className="flex items-center space-x-2 px-8 py-2.5 bg-brand-secondary text-white font-bold rounded-lg hover:bg-violet-600 transition-colors shadow-lg shadow-brand-secondary/20 disabled:opacity-50">
                         <Send size={18} />
-                        <span>Launch Campaign</span>
+                        <span>{isLaunching ? "Launching..." : "Launch Campaign"}</span>
                     </button>
                 )}
             </div>
