@@ -60,20 +60,26 @@ router.post('/', async (req, res) => {
             leads: activeLeads
         };
 
-        // Fire the Webhook asynchronously so we don't block the frontend response
-        fetch('https://n8n-production-adb97.up.railway.app/webhook/run-campaign', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).then(async res => {
-            const text = await res.text();
-            console.log('n8n webhook fired:', res.status, text.substring(0, 50));
-        }).catch(err => console.error('Error triggering n8n webhook:', err));
+        // Force Vercel to wait for the n8n outbound request to finish 
+        // Serverless functions will kill async tasks when res.json() is called if we don't await them.
+        try {
+            console.log("Sending payload to n8n...", JSON.stringify(payload).substring(0, 100));
+            const n8nRes = await fetch('https://n8n-production-adb97.up.railway.app/webhook/run-campaign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const text = await n8nRes.text();
+            console.log('n8n webhook fired successfully. Status:', n8nRes.status, 'Response:', text.substring(0, 100));
+        } catch (n8nErr) {
+            console.error('Error triggering n8n webhook:', n8nErr.message);
+            // We still want to return success to the frontend if n8n is just slow
+        }
 
-        res.status(201).json({ message: 'Campaign launched successfully', campaignId: campaignId, leadsIncluded: activeLeads.length });
+        return res.status(201).json({ message: 'Campaign launched successfully', campaignId: campaignId, leadsIncluded: activeLeads.length });
     } catch (error) {
         console.error('Failed to launch campaign:', error);
-        res.status(500).json({ error: 'Failed to launch campaign backend router', details: error.message });
+        return res.status(500).json({ error: 'Failed to launch campaign backend router', details: error.message });
     }
 });
 
