@@ -4,7 +4,7 @@ const router = express.Router();
 // POST /api/scraper/trigger — Trigger n8n scraper workflow
 router.post('/trigger', async (req, res) => {
     const { category, country, filters, source } = req.body;
-    const n8nBase = process.env.N8N_BASE_URL || 'https://bilaleem.app.n8n.cloud';
+    const n8nBase = process.env.N8N_BASE_URL || 'https://n8n-production-adb97.up.railway.app';
 
     let webhookPath;
     if (source === 'linkedin') {
