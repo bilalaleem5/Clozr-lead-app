@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, CheckCircle2, ChevronRight, FileSpreadsheet, KeyRound, MessageSquare, Send, Sparkles, Download } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import clsx from 'clsx';
+import api from '../services/api';
 
 const steps = ['Data Source', 'Service Details', 'Tone', 'Channels', 'Preview & Launch'];
 
@@ -108,18 +109,13 @@ const CampaignBuilder = () => {
                 leads: leadsToSend.length > 0 ? leadsToSend : undefined // Only send if we have them, otherwise backend fetches from DB
             };
 
-            const response = await fetch('http://localhost:5000/api/campaigns', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            const responseData = await api.createCampaign(payload);
 
-            if (response.ok) {
+            if (responseData && !responseData.error) {
                 alert("Campaign launched successfully! The n8n webhook has been triggered.");
                 setCurrentStep(1); // Reset to beginning or handle navigation
             } else {
-                const errData = await response.json();
-                alert("Failed to launch campaign: " + (errData.error || "Unknown error"));
+                alert("Failed to launch campaign: " + (responseData.error || "Unknown error"));
             }
         } catch (error) {
             console.error("Launch error:", error);
